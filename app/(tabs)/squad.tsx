@@ -7,91 +7,36 @@ import {
   SectionList,
   StyleSheet,
   SafeAreaView,
-  ImageSourcePropType,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-
-// --- TYPES ---
-interface Player {
-  id: string;
-  name: string;
-  number: string;
-  countryCode: string;
-  country: string;
-  image: ImageSourcePropType;
-}
-
-interface SquadSection {
-  title: string;
-  data: Player[];
-}
-
-// --- DUMMY DATA ---
-const SQUAD_DATA: SquadSection[] = [
-  {
-    title: "GOALKEEPERS",
-    data: [
-      {
-        id: "1",
-        name: "Manuel Neuer",
-        number: "1",
-        countryCode: "GER",
-        country: "Germany",
-        image: require("../../assets/images/bayern.png"), // Replace with player avatars
-      },
-    ],
-  },
-  {
-    title: "DEFENDERS",
-    data: [
-      {
-        id: "2",
-        name: "Matthijs de Ligt", // Note: He transferred, but keeping for your UI match!
-        number: "4",
-        countryCode: "NED",
-        country: "Netherlands",
-        image: require("../../assets/images/bayern.png"),
-      },
-    ],
-  },
-  {
-    title: "MIDFIELDERS",
-    data: [
-      {
-        id: "3",
-        name: "Jamal Musiala",
-        number: "42", // Based on your mockup
-        countryCode: "GER",
-        country: "Germany",
-        image: require("../../assets/images/bayern.png"),
-      },
-    ],
-  },
-  {
-    title: "FORWARDS",
-    data: [
-      {
-        id: "4",
-        name: "Harry Kane",
-        number: "9",
-        countryCode: "ENG",
-        country: "England",
-        image: require("../../assets/images/bayern.png"),
-      },
-    ],
-  },
-];
+import { SQUAD_DATA, Player, SquadSection } from "../../components/SquadData"; // Adjust path if needed!
 
 export default function SquadScreen() {
   const [activeFilter, setActiveFilter] = useState("All");
+
+  // --- FILTER LOGIC ---
+  // This dynamically creates a new list based on the active button
+  const filteredSquad = SQUAD_DATA.map((section) => {
+    return {
+      ...section,
+      data: section.data.filter((player) => {
+        if (activeFilter === "All") return true;
+        if (activeFilter === "Starter") return player.status === "Starter";
+        if (activeFilter === "Bench") return player.status === "Bench";
+        return true;
+      }),
+    };
+  }).filter((section) => section.data.length > 0); // Hides headers like "Forwards" if no forwards match the filter
 
   // --- RENDERERS ---
   const renderPlayer = ({ item }: { item: Player }) => (
     <TouchableOpacity
       style={styles.playerRow}
       activeOpacity={0.7}
-      onPress={() => router.push("/PlayerProfile")}
+      onPress={() =>
+        router.push({ pathname: "/PlayerProfile", params: { id: item.id } })
+      }
     >
       {/* Avatar & Number Badge */}
       <View style={styles.avatarContainer}>
@@ -140,7 +85,7 @@ export default function SquadScreen() {
 
       {/* FILTER TABS */}
       <View style={styles.filterRow}>
-        {["All", "Starters", "Injured"].map((filter) => (
+        {["All", "Starter", "Bench"].map((filter) => (
           <TouchableOpacity
             key={filter}
             style={[
@@ -163,7 +108,7 @@ export default function SquadScreen() {
 
       {/* SQUAD LIST */}
       <SectionList
-        sections={SQUAD_DATA}
+        sections={filteredSquad} // <-- IMPORTANT: Swapped SQUAD_DATA for filteredSquad here!
         keyExtractor={(item) => item.id}
         renderItem={renderPlayer}
         renderSectionHeader={renderSectionHeader}

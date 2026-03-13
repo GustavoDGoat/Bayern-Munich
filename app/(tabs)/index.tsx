@@ -15,58 +15,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 const { width } = Dimensions.get("window");
+import { SQUAD_DATA, Player } from "@/components/SquadData";
 // Setting the card width to 75% of the screen so the next card peeks in
 const CARD_WIDTH = width * 0.75;
-
-interface Player {
-  id: string;
-  name: string;
-  number: string;
-  position: string;
-  nationality: string;
-  image: ImageSourcePropType;
-}
-// 1. DATA ARRAY
-const SQUAD_DATA = [
-  {
-    id: "1",
-    name: "Harry Kane",
-    number: "09",
-    position: "Center-Forward",
-    nationality: "England",
-    image: require("../../assets/images/bayern.png"), // Replace with player action shots later!
-  },
-  {
-    id: "2",
-    name: "Jamal Musiala",
-    number: "10",
-    position: "Midfielder",
-    nationality: "Germany",
-    image: require("../../assets/images/bayern.png"),
-  },
-  {
-    id: "3",
-    name: "Manuel Neuer",
-    number: "01",
-    position: "Goalkeeper",
-    nationality: "Germany",
-    image: require("../../assets/images/bayern.png"),
-  },
-];
 
 // 2. PLAYER CARD COMPONENT
 const PlayerCard = ({ item }: { item: Player }) => (
   <TouchableOpacity
     style={globalStyles.card}
     activeOpacity={0.9}
-    onPress={() => {
-      // Pushes the user to the PlayerProfile.tsx file
-      router.push("/PlayerProfile");
-    }}
+    onPress={() =>
+      router.push({ pathname: "/PlayerProfile", params: { id: item.id } })
+    }
   >
+    {" "}
     {/* Player Image as Background */}
     <Image source={item.image} style={globalStyles.playerImage} />
-
     {/* Gradient Overlay to make the white text readable against the image */}
     <LinearGradient
       colors={["transparent", "rgba(0,0,0,0.8)"]}
@@ -78,7 +42,6 @@ const PlayerCard = ({ item }: { item: Player }) => (
         height: "60%",
       }}
     />
-
     <View style={globalStyles.infoContainer}>
       {/* Inline style for the Red number to make it pop */}
       <Text style={[globalStyles.playerNumber, { color: "#DC052D" }]}>
@@ -86,14 +49,14 @@ const PlayerCard = ({ item }: { item: Player }) => (
       </Text>
       <Text style={globalStyles.playerName}>{item.name}</Text>
       <Text style={globalStyles.details}>
-        {item.position} | {item.nationality}
+        {item.position} | {item.country}
       </Text>
     </View>
   </TouchableOpacity>
 );
 
 const bayernLogo = require("../../assets/images/bayern.png");
-
+const ALL_PLAYERS = SQUAD_DATA.flatMap((section) => section.data);
 export default function HomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
@@ -156,18 +119,17 @@ export default function HomeScreen() {
         </View>
 
         {/* THE HORIZONTAL CAROUSEL */}
+        {/* THE HORIZONTAL CAROUSEL */}
         <FlatList
-          data={SQUAD_DATA}
+          data={ALL_PLAYERS} // <-- CHANGE THIS FROM SQUAD_DATA
           horizontal
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
-          // The magic for smooth snapping:
           snapToInterval={CARD_WIDTH + 20}
           decelerationRate="fast"
           contentContainerStyle={{ paddingLeft: 15, paddingVertical: 15 }}
           renderItem={({ item }) => <PlayerCard item={item} />}
         />
-
         {/* BOTTOM PADDING */}
         {/* --- LIVE MATCH CARD --- */}
         <View style={globalStyles.matchCard}>

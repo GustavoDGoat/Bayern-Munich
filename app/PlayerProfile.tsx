@@ -1,38 +1,91 @@
-import React from "react";
+import React, { useRef } from "react";
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Dimensions,
+  Animated, // <-- IMPORT ANIMATED
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
-const { width, height } = Dimensions.get("window");
-const HERO_HEIGHT = height * 0.45; // Hero image takes up 45% of screen
+// IMPORTANT: Ensure this path correctly points to your SquadData.ts file
+import { SQUAD_DATA } from "../components/SquadData";
+
+const { height } = Dimensions.get("window");
+const HERO_HEIGHT = height * 0.45;
 
 export default function PlayerProfileScreen() {
+  const { id } = useLocalSearchParams();
+
+  const ALL_PLAYERS = SQUAD_DATA.flatMap((section) => section.data);
+  const player = ALL_PLAYERS.find((p) => p.id === String(id));
+
+  // --- 1. PARALLAX ANIMATION SETUP ---
+  // Create an animated value that tracks the user's vertical scroll position
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Calculate the scale of the image based on the scroll position
+  // When pulling down (negative scroll), scale smoothly from 1 up to 1.5
+  const imageScale = scrollY.interpolate({
+    inputRange: [-100, 0],
+    outputRange: [1.5, 1],
+    extrapolateLeft: "extend", // Keep growing if they pull harder!
+    extrapolateRight: "clamp", // Don't shrink the image when scrolling normally
+  });
+
+  if (!player) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
+      >
+        <Text style={{ color: "#FFF", fontSize: 18, marginBottom: 20 }}>
+          Player data not found.
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.positionTag}
+        >
+          <Text style={styles.positionText}>GO BACK</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const isGoalkeeper = player.position === "Goalkeeper";
+
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-        {/* --- 1. HERO SECTION --- */}
+      {/* --- 2. ANIMATED SCROLLVIEW --- */}
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        bounces={true} // Must be true so iOS/Android allows the "pull down" over-scroll
+        scrollEventThrottle={16} // Fires the scroll event every ~16ms for smooth 60fps tracking
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }, // Keeps the animation butter-smooth by running on the native thread
+        )}
+      >
         <View style={styles.heroContainer}>
-          <Image
-            source={require("../assets/images/bayern.png")} // Replace with Jamal Musiala action shot
-            style={styles.heroImage}
+          {/* --- 3. ANIMATED IMAGE --- */}
+          <Animated.Image
+            source={player.image}
+            style={[
+              styles.heroImage,
+              { transform: [{ scale: imageScale }] }, // Apply our zooming math here!
+            ]}
             resizeMode="cover"
           />
-          {/* Gradient to fade the image smoothly into the background color */}
           <LinearGradient
             colors={["transparent", "rgba(22, 12, 17, 0.8)", "#160C11"]}
             style={styles.gradientOverlay}
           />
 
-          {/* Custom Header (Overlays the image) */}
           <View style={styles.headerArea}>
             <TouchableOpacity
               style={styles.iconButton}
@@ -47,21 +100,22 @@ export default function PlayerProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Player Info (Bottom of Hero) */}
           <View style={styles.heroTextContainer}>
             <View style={styles.tagRow}>
               <View style={styles.positionTag}>
-                <Text style={styles.positionText}>ATTACKING MIDFIELDER</Text>
+                <Text style={styles.positionText}>
+                  {player.position.toUpperCase()}
+                </Text>
               </View>
-              <Text style={styles.heroNumber}>#42</Text>
+              <Text style={styles.heroNumber}>#{player.number}</Text>
             </View>
 
-            <Text style={styles.playerName}>Jamal Musiala</Text>
+            <Text style={styles.playerName}>{player.name}</Text>
 
             <View style={styles.demographicsRow}>
               <View style={styles.demoItem}>
                 <Ionicons name="flag" size={14} color="#DC052D" />
-                <Text style={styles.demoText}>Germany</Text>
+                <Text style={styles.demoText}>{player.country}</Text>
               </View>
               <View style={styles.demoItem}>
                 <MaterialCommunityIcons
@@ -69,15 +123,14 @@ export default function PlayerProfileScreen() {
                   size={14}
                   color="#DC052D"
                 />
-                <Text style={styles.demoText}>21 Years Old</Text>
+                <Text style={styles.demoText}>{player.age} Years Old</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* --- 2. CONTENT SECTION --- */}
+        {/* --- CONTENT SECTION --- */}
         <View style={styles.contentContainer}>
-          {/* SEASON STATS */}
           <View style={styles.sectionHeaderRow}>
             <Ionicons name="bar-chart" size={20} color="#DC052D" />
             <Text style={styles.sectionTitle}>Season Stats</Text>
@@ -85,59 +138,51 @@ export default function PlayerProfileScreen() {
 
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Goals</Text>
+              <Text style={styles.statLabel}>
+                {isGoalkeeper ? "Clean Sheets" : "Goals"}
+              </Text>
               <View style={styles.statValueRow}>
-                <Text style={styles.statValue}>12</Text>
-                <Text style={styles.statGreenText}>+2 vs BVB</Text>
+                <Text style={styles.statValue}>{player.stats.primary}</Text>
+                <Text style={styles.statGreenText}>This Season</Text>
               </View>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Assists</Text>
+              <Text style={styles.statLabel}>
+                {isGoalkeeper ? "Saves" : "Assists"}
+              </Text>
               <View style={styles.statValueRow}>
-                <Text style={styles.statValue}>8</Text>
-                <Text style={styles.statGreenText}>+1 last match</Text>
+                <Text style={styles.statValue}>{player.stats.secondary}</Text>
+                <Text style={styles.statGreenText}>This Season</Text>
               </View>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Pass Accuracy</Text>
               <View style={styles.statValueRow}>
-                <Text style={styles.statValue}>89%</Text>
-                <Text style={styles.statGreenText}>Top 5%</Text>
+                <Text style={styles.statValue}>{player.stats.passAcc}</Text>
               </View>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Dribbles (avg)</Text>
+              <Text style={styles.statLabel}>Key Metric</Text>
               <View style={styles.statValueRow}>
-                <Text style={styles.statValue}>4.2</Text>
-                <Text style={styles.statGreenText}>Elite</Text>
+                <Text style={styles.statValue}>{player.stats.keyMetric}</Text>
               </View>
             </View>
           </View>
 
-          {/* BIOGRAPHY */}
           <Text
             style={[styles.sectionTitle, { marginTop: 25, marginBottom: 15 }]}
           >
             Biography
           </Text>
           <View style={styles.bioCard}>
-            <Text style={styles.bioText}>
-              Jamal Musiala is one of the most exciting young talents in world
-              football. Known for his incredible close control and dribbling
-              ability, he has become a cornerstone of the FC Bayern and German
-              National Team midfield. Since joining the senior squad, "Bambi"
-              has consistently delivered match-winning performances on the
-              biggest stages.
-            </Text>
+            <Text style={styles.bioText}>{player.bio}</Text>
           </View>
 
-          {/* RECENT FORM */}
           <View style={[styles.sectionHeaderRow, { marginTop: 25 }]}>
             <MaterialCommunityIcons name="history" size={22} color="#DC052D" />
             <Text style={styles.sectionTitle}>Recent Form</Text>
           </View>
 
-          {/* Form Card: Win */}
           <View style={[styles.formCard, { borderLeftColor: "#4ade80" }]}>
             <View>
               <Text style={styles.matchTitle}>VS B. DORTMUND (H)</Text>
@@ -157,73 +202,18 @@ export default function PlayerProfileScreen() {
             </View>
           </View>
 
-          {/* Form Card: Win (Leverkusen) */}
-          <View style={[styles.formCard, { borderLeftColor: "#4ade80" }]}>
-            <View>
-              <Text style={styles.matchTitle}>VS LEVERKUSEN (A)</Text>
-              <Text style={styles.matchScore}>1 - 2 Win</Text>
-            </View>
-            <View style={styles.formRight}>
-              <View style={styles.ratingBox}>
-                <Text style={styles.ratingLabel}>Rating</Text>
-                <Text style={[styles.ratingValue, { color: "#4ade80" }]}>
-                  7.8
-                </Text>
-              </View>
-              <View style={[styles.eventBadge, { backgroundColor: "#3b82f6" }]}>
-                {/* Blue badge for assist */}
-                <MaterialCommunityIcons
-                  name="shoe-cleat"
-                  size={12}
-                  color="#FFF"
-                />
-                <Text style={styles.eventText}>x1</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Form Card: Draw */}
-          <View style={[styles.formCard, { borderLeftColor: "#fbbf24" }]}>
-            <View>
-              <Text style={styles.matchTitle}>VS REAL MADRID (H)</Text>
-              <Text style={styles.matchScore}>2 - 2 Draw</Text>
-            </View>
-            <View style={styles.formRight}>
-              <View style={styles.ratingBox}>
-                <Text style={styles.ratingLabel}>Rating</Text>
-                <Text style={[styles.ratingValue, { color: "#fbbf24" }]}>
-                  7.1
-                </Text>
-              </View>
-              <View style={[styles.eventBadge, { backgroundColor: "#555" }]}>
-                <Ionicons name="time-outline" size={12} color="#FFF" />
-                <Text style={styles.eventText}>82'</Text>
-              </View>
-            </View>
-          </View>
-
           <View style={{ height: 40 }} />
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
 
 // --- STYLES ---
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#160C11", // The deep dark background
-  },
-  heroContainer: {
-    height: HERO_HEIGHT,
-    position: "relative",
-  },
-  heroImage: {
-    width: "100%",
-    height: "100%",
-    position: "absolute",
-  },
+  container: { flex: 1, backgroundColor: "#160C11" },
+  heroContainer: { height: HERO_HEIGHT, position: "relative" },
+  heroImage: { width: "100%", height: "100%", position: "absolute" },
   gradientOverlay: {
     position: "absolute",
     bottom: 0,
@@ -233,7 +223,7 @@ const styles = StyleSheet.create({
   },
   headerArea: {
     position: "absolute",
-    top: 50, // SafeArea roughly
+    top: 50,
     left: 0,
     right: 0,
     flexDirection: "row",
@@ -245,26 +235,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)", // Semi-transparent circle
+    backgroundColor: "rgba(255,255,255,0.1)",
     justifyContent: "center",
     alignItems: "center",
   },
-  headerTitle: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  heroTextContainer: {
-    position: "absolute",
-    bottom: 20,
-    left: 20,
-    right: 20,
-  },
-  tagRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
+  headerTitle: { color: "#FFF", fontSize: 18, fontWeight: "bold" },
+  heroTextContainer: { position: "absolute", bottom: 20, left: 20, right: 20 },
+  tagRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   positionTag: {
     backgroundColor: "#DC052D",
     paddingHorizontal: 10,
@@ -290,25 +267,10 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     marginBottom: 10,
   },
-  demographicsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  demoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 15,
-  },
-  demoText: {
-    color: "#FFF",
-    fontSize: 12,
-    marginLeft: 6,
-    fontWeight: "600",
-  },
-  contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
+  demographicsRow: { flexDirection: "row", alignItems: "center" },
+  demoItem: { flexDirection: "row", alignItems: "center", marginRight: 15 },
+  demoText: { color: "#FFF", fontSize: 12, marginLeft: 6, fontWeight: "600" },
+  contentContainer: { paddingHorizontal: 20, paddingTop: 10 },
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -327,8 +289,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   statCard: {
-    width: "48%", // Forces 2 columns
-    backgroundColor: "#201114", // Dark reddish tint
+    width: "48%",
+    backgroundColor: "#201114",
     padding: 15,
     borderRadius: 12,
     borderWidth: 1,
@@ -345,16 +307,8 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
     justifyContent: "space-between",
   },
-  statValue: {
-    color: "#FFF",
-    fontSize: 28,
-    fontWeight: "bold",
-  },
-  statGreenText: {
-    color: "#4ade80",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
+  statValue: { color: "#FFF", fontSize: 28, fontWeight: "bold" },
+  statGreenText: { color: "#4ade80", fontSize: 10, fontWeight: "bold" },
   bioCard: {
     backgroundColor: "#201114",
     padding: 15,
@@ -362,16 +316,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#3A1B22",
   },
-  bioText: {
-    color: "#CCC",
-    fontSize: 14,
-    lineHeight: 22,
-  },
+  bioText: { color: "#CCC", fontSize: 14, lineHeight: 22 },
   formCard: {
     backgroundColor: "#201114",
     padding: 15,
     borderRadius: 12,
-    borderLeftWidth: 4, // Dynamic colored border
+    borderLeftWidth: 4,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -388,29 +338,13 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 4,
   },
-  matchScore: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  formRight: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  ratingBox: {
-    alignItems: "flex-end",
-    marginRight: 15,
-  },
-  ratingLabel: {
-    color: "#888",
-    fontSize: 10,
-  },
-  ratingValue: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+  matchScore: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+  formRight: { flexDirection: "row", alignItems: "center" },
+  ratingBox: { alignItems: "flex-end", marginRight: 15 },
+  ratingLabel: { color: "#888", fontSize: 10 },
+  ratingValue: { fontSize: 16, fontWeight: "bold" },
   eventBadge: {
-    backgroundColor: "#DC052D", // Red for goals by default
+    backgroundColor: "#DC052D",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 6,
@@ -418,9 +352,5 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     gap: 4,
   },
-  eventText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
+  eventText: { color: "#FFF", fontSize: 12, fontWeight: "bold" },
 });
